@@ -2,11 +2,11 @@ name: Build and Deploy to ECS
 
 on:
   push:
-    branches: [ "main" ] # Triggers only on push to main
+    branches: [ "main" ]
 
 permissions:
-  id-token: write   # REQUIRED for OIDC authentication to AWS
-  contents: read    # REQUIRED for actions/checkout
+  id-token: write
+  contents: read
 
 env:
   AWS_REGION: us-east-1
@@ -30,12 +30,7 @@ jobs:
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
-        audience: sts.amazonaws.com   # <--- ADD THIS LINE - name: Configure AWS Credentials (via OIDC)
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_REGION }}
-        audience: sts.amazonaws.com   # <--- ADD THIS LINE
+        audience: sts.amazonaws.com
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -45,7 +40,7 @@ jobs:
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }} # Tag with the git commit SHA
+        IMAGE_TAG: ${{ github.sha }}
       run: |
         cd app
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
