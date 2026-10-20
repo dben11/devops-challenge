@@ -101,6 +101,12 @@ resource "aws_ecs_task_definition" "app" {
       hostPort      = var.container_port
       protocol      = "tcp"
     }]
+    environment = [
+      {
+        name  = "APP_VERSION"
+        value = "placeholder" # This will be overwritten by CI/CD
+      }
+    ]
 
     # Send logs to CloudWatch
     logConfiguration = {
