@@ -59,7 +59,7 @@ jobs:
         container-name: ${{ env.CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
         environment-variables: |
-          APP_VERSION=${{ github.sha }]
+          APP_VERSION=${{ github.sha }}
 
     - name: Deploy new Task Definition to ECS
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
