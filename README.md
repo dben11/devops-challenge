@@ -8,7 +8,8 @@ This project deploys a containerized Python (Flask) application to AWS using a h
 `User -> Application Load Balancer (ALB) -> ECS Fargate (2 Tasks) -> Docker Container (Flask)`
 
 ### Architecture Diagram
-*(https://drive.google.com/file/d/1mv5rbRhEMo_TzKW6OoUBhHh3vwQrKmD-/view?usp=sharing)*
+![DevOps Challenge Architecture](images/https://drive.google.com/file/d/1mv5rbRhEMo_TzKW6OoUBhHh3vwQrKmD-/view?usp=sharing)
+
 - **VPC:** `10.0.0.0/16` CIDR block with DNS hostnames enabled.
 - **Subnets:** 2 Public Subnets across 2 Availability Zones (`us-east-1a`, `us-east-1b`) for high availability.
 - **Compute:** AWS ECS Fargate (Serverless containers) running 2 tasks of the application.
