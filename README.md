@@ -3,6 +3,7 @@
 ## 1. Architecture Overview
 
 This project deploys a containerized Python (Flask) application to AWS using a highly available, production-ready architecture. 
+"I built an automated, reproducible deployment pipeline and Infrastructure-as-Code setup that provisions AWS infrastructure with Terraform, containerizes a Python Flask app with Docker, and builds, tests, and deploys it through GitHub Actions—with CloudWatch monitoring."
 
 ### High-Level Flow
 `User -> Application Load Balancer (ALB) -> ECS Fargate (2 Tasks) -> Docker Container (Flask)`
