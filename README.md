@@ -19,6 +19,44 @@ This project deploys a containerized Python (Flask) application to AWS using a h
 - **CI/CD:** GitHub Actions pipeline handles the build, push, and rolling deployment.
 - **Observability:** CloudWatch Logs capture container stdout/stderr, and Container Insights is enabled on the ECS cluster.
 
+### Project Structure
+### Architecture Diagram
+![DevOps Challenge Architecture](images/architecture.png)
+
+### Project Structure.
+├── .github
+│   └── workflows
+│       └── deploy.yml
+├── .gitignore
+├── README.md
+├── app
+│   ├── Dockerfile
+│   ├── app.py
+│   ├── requirements.txt
+│   └── .dockerignore
+├── images
+│   └── architecture.png
+└── terraform
+    ├── bootstrap
+    │   ├── main.tf
+    │   ├── outputs.tf
+    │   └── variables.tf
+    ├── environments
+    │   └── prod
+    │       ├── backend.tf
+    │       ├── github_oidc.tf
+    │       └── main.tf
+    └── modules
+        ├── ecs
+        │   ├── compute.tf
+        │   ├── main.tf
+        │   ├── outputs.tf
+        │   └── variables.tf
+        └── network
+            ├── main.tf
+            ├── outputs.tf
+            └── variables.tf
+
 ## 2. Deployment Steps
 
 This project is designed to be fully automated. 
@@ -28,6 +66,7 @@ This project is designed to be fully automated.
 - Terraform installed (v1.6+).
 - Docker installed.
 - A GitHub repository.
+- 
 
 ### Phase 1: Infrastructure Provisioning (One-time setup)
 1. Navigate to the bootstrap directory:
