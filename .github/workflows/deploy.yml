@@ -39,34 +39,34 @@ jobs:
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REGISTRY: ${{ steps.login-cr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
         cd app
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Download current Task Definition
+    - name: Download Task Definition and Update Image/Env
+      id: update-task
       run: |
-        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
+        # 1. Download the current task definition
+        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-def.json
+        
+        # 2. Update the image and environment variable using jq
+        NEW_IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        jq --arg IMAGE "$NEW_IMAGE" --arg VERSION "${{ github.sha }}" \
+           '.containerDefinitions[0].image = $IMAGE | .containerDefinitions[0].environment = [{"name": "APP_VERSION", "value": $VERSION}] | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+           task-def.json > new-task-def.json
+           
+        # 3. Register the new task definition
+        aws ecs register-task-definition --cli-input-json file://new-task-def.json > register-output.json
+        NEW_REVISION=$(jq -r '.taskDefinition.revision' register-output.json)
+        echo "NEW_REVISION=$NEW_REVISION" >> $GITHUB_ENV
 
-    - name: Render new Task Definition with new image
-      id: render-task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: task-definition.json
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
-        environment-variables: |
-          [
-            {"name": "APP_VERSION", "value": "${{ github.sha }}"}
-          ]
-
-    - name: Deploy new Task Definition to ECS
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.render-task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --service ${{ env.ECS_SERVICE }} \
+          --task-definition ${{ env.ECS_TASK_DEFINITION }}:${{ env.NEW_REVISION }} \
+          --force-new-deployment
