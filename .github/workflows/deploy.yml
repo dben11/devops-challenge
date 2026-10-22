@@ -35,20 +35,23 @@ jobs:
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
       run: |
-        # Dynamically get the AWS Account ID and ECR Registry
-        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-        IMAGE_URI="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        # Get the AWS Account ID
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+        echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
         
-        # Authenticate Docker to ECR
-        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
+        # Construct the ECR URL
+        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ github.sha }}"
+        
+        # Authenticate Docker
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
         
         # Build and push
         cd app
         docker build -t $IMAGE_URI .
         docker push $IMAGE_URI
         
-        # Save the image URI for the next steps
+        # Save the image URI
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Download Task Definition and Update Image/Env
