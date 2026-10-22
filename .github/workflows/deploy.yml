@@ -32,19 +32,24 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         audience: sts.amazonaws.com
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
       run: |
+        # Dynamically get the AWS Account ID and ECR Registry
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+        IMAGE_URI="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        
+        # Authenticate Docker to ECR
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
+        
+        # Build and push
         cd app
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker build -t $IMAGE_URI .
+        docker push $IMAGE_URI
+        
+        # Save the image URI for the next steps
+        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Download Task Definition and Update Image/Env
       id: update-task
@@ -53,8 +58,7 @@ jobs:
         aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-def.json
         
         # 2. Update the image and environment variable using jq
-        NEW_IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-        jq --arg IMAGE "$NEW_IMAGE" --arg VERSION "${{ github.sha }}" \
+        jq --arg IMAGE "${{ env.IMAGE_URI }}" --arg VERSION "${{ github.sha }}" \
            '.containerDefinitions[0].image = $IMAGE | .containerDefinitions[0].environment = [{"name": "APP_VERSION", "value": $VERSION}] | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
            task-def.json > new-task-def.json
            
