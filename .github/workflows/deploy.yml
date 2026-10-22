@@ -32,27 +32,19 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         audience: sts.amazonaws.com
 
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
       run: |
-        set -e
-        
-        # 1. Hardcoded ECR URL based on your AWS Account ID
-        ECR_REGISTRY="227281812481.dkr.ecr.us-east-1.amazonaws.com"
-        IMAGE_URI="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-        
-        echo "Full Image URI: $IMAGE_URI"
-        
-        # 2. Authenticate Docker
-        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
-        
-        # 3. Build and push
         cd app
-        docker build -t $IMAGE_URI .
-        docker push $IMAGE_URI
-        
-        # 4. Save for next step
-        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+        docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
 
     - name: Download Task Definition and Update Image/Env
       id: update-task
@@ -61,7 +53,8 @@ jobs:
         aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-def.json
         
         # 2. Update the image and environment variable using jq
-        jq --arg IMAGE "${{ env.IMAGE_URI }}" --arg VERSION "${{ github.sha }}" \
+        NEW_IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        jq --arg IMAGE "$NEW_IMAGE" --arg VERSION "${{ github.sha }}" \
            '.containerDefinitions[0].image = $IMAGE | .containerDefinitions[0].environment = [{"name": "APP_VERSION", "value": $VERSION}] | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
            task-def.json > new-task-def.json
            
