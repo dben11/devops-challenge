@@ -32,40 +32,26 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         audience: sts.amazonaws.com
 
-    - name: Debug Variables
-      run: |
-        echo "AWS_REGION is: $AWS_REGION"
-        echo "ECR_REPOSITORY is: $ECR_REPOSITORY"
-        aws sts get-caller-identity
-
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
       run: |
-        set -e # Stop immediately if any command fails
+        set -e
         
-        # 1. Verify AWS Auth
-        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
-        echo "AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
+        # 1. Hardcoded ECR URL based on your AWS Account ID
+        ECR_REGISTRY="227281812481.dkr.ecr.us-east-1.amazonaws.com"
+        IMAGE_URI="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
         
-        if [ -z "$AWS_ACCOUNT_ID" ]; then
-          echo "ERROR: AWS_ACCOUNT_ID is empty. OIDC authentication failed."
-          exit 1
-        fi
-        
-        # 2. Construct URLs
-        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ github.sha }}"
         echo "Full Image URI: $IMAGE_URI"
         
-        # 3. Authenticate Docker
-        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+        # 2. Authenticate Docker
+        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
         
-        # 4. Build and push
+        # 3. Build and push
         cd app
         docker build -t $IMAGE_URI .
         docker push $IMAGE_URI
         
-        # 5. Save for next step
+        # 4. Save for next step
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Download Task Definition and Update Image/Env
